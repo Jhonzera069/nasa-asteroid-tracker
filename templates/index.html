@@ -1,0 +1,925 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asteroid Tracker — NASA NeoWs</title>
+
+    <style>
+        :root {
+            --bg: #070b12;
+            --surface: #0d131d;
+            --surface-2: #111a27;
+            --surface-3: #162132;
+            --border: #223047;
+            --border-light: #2c3d58;
+            --text: #f4f7fb;
+            --muted: #7f91aa;
+            --blue: #38bdf8;
+            --blue-strong: #0284c7;
+            --green: #22c55e;
+            --red: #f43f5e;
+            --yellow: #f59e0b;
+            --radius: 10px;
+            --mono: "JetBrains Mono", "Fira Code", "Roboto Mono", monospace;
+            --sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            min-height: 100vh;
+            background:
+                radial-gradient(circle at 80% 0%, rgba(14, 116, 144, .10), transparent 28%),
+                radial-gradient(circle at 15% 20%, rgba(30, 64, 175, .08), transparent 30%),
+                var(--bg);
+            color: var(--text);
+            font-family: var(--sans);
+            font-size: 13px;
+            line-height: 1.45;
+        }
+
+        button, input, select { font: inherit; }
+
+        .topbar {
+            height: 64px;
+            padding: 0 28px;
+            background: rgba(13, 19, 29, .92);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 20;
+            backdrop-filter: blur(14px);
+        }
+
+        .brand { display: flex; align-items: center; gap: 13px; }
+
+        .brand-icon {
+            width: 36px;
+            height: 36px;
+            border: 1px solid #285071;
+            border-radius: 9px;
+            display: grid;
+            place-items: center;
+            color: var(--blue);
+            background: linear-gradient(145deg, #102438, #0d1826);
+            font-size: 18px;
+        }
+
+        .brand-text strong {
+            display: block;
+            font-size: 14px;
+            letter-spacing: .1px;
+        }
+
+        .brand-text span {
+            display: block;
+            color: var(--muted);
+            font-size: 10px;
+            margin-top: 1px;
+            letter-spacing: .8px;
+            text-transform: uppercase;
+        }
+
+        .system-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--muted);
+            font-size: 11px;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--green);
+            box-shadow: 0 0 12px rgba(34,197,94,.55);
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: 250px minmax(0, 1fr);
+            min-height: calc(100vh - 64px);
+        }
+
+        .sidebar {
+            border-right: 1px solid var(--border);
+            background: rgba(13,19,29,.72);
+            padding: 24px 18px;
+        }
+
+        .sidebar-title {
+            color: var(--text);
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            margin: 0 8px 18px;
+        }
+
+        .filter-group { margin-bottom: 20px; }
+
+        .filter-label {
+            display: block;
+            margin: 0 8px 7px;
+            color: var(--muted);
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: .8px;
+        }
+
+        .input-wrap { position: relative; }
+
+        .input-wrap span {
+            position: absolute;
+            left: 11px;
+            top: 8px;
+            color: var(--muted);
+        }
+
+        .input-control, .select-control {
+            width: 100%;
+            color: var(--text);
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            padding: 9px 10px;
+            outline: none;
+        }
+
+        .input-control { padding-left: 31px; }
+        .input-control:focus, .select-control:focus { border-color: var(--blue-strong); }
+
+        .sidebar-info {
+            border-top: 1px solid var(--border);
+            margin-top: 25px;
+            padding: 18px 8px 0;
+            color: var(--muted);
+            font-size: 11px;
+        }
+
+        .sidebar-info div {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 6px 0;
+        }
+
+        .sidebar-info b { color: #c8d4e4; font-family: var(--mono); font-weight: 500; }
+
+        .main {
+            padding: 28px;
+            min-width: 0;
+        }
+
+        .page-heading {
+            display: flex;
+            align-items: end;
+            justify-content: space-between;
+            gap: 20px;
+            margin-bottom: 22px;
+        }
+
+        .eyebrow {
+            color: var(--blue);
+            font-family: var(--mono);
+            font-size: 10px;
+            letter-spacing: 1.5px;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        h1 { font-size: 24px; line-height: 1.15; letter-spacing: -.6px; }
+        .subtitle { color: var(--muted); margin-top: 5px; }
+
+        .date-badge {
+            padding: 7px 10px;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            color: var(--muted);
+            font-family: var(--mono);
+            white-space: nowrap;
+        }
+
+        .metrics {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0,1fr));
+            gap: 12px;
+            margin-bottom: 18px;
+        }
+
+        .metric {
+            background: linear-gradient(145deg, var(--surface-2), var(--surface));
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 16px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .metric::after {
+            content: "";
+            position: absolute;
+            width: 75px;
+            height: 75px;
+            border-radius: 50%;
+            right: -35px;
+            top: -35px;
+            background: rgba(56,189,248,.055);
+        }
+
+        .metric-label {
+            color: var(--muted);
+            font-size: 10px;
+            text-transform: uppercase;
+            letter-spacing: .8px;
+            margin-bottom: 8px;
+        }
+
+        .metric-value {
+            font-family: var(--mono);
+            font-size: 22px;
+            font-weight: 700;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .metric-help { color: var(--muted); font-size: 10px; margin-top: 4px; }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1.65fr) minmax(280px, .9fr);
+            gap: 18px;
+            margin-bottom: 18px;
+        }
+
+        .panel {
+            background: rgba(13,19,29,.88);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+
+        .panel-header {
+            min-height: 54px;
+            padding: 13px 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .panel-title { font-size: 13px; font-weight: 700; }
+        .panel-subtitle { color: var(--muted); font-size: 10px; margin-top: 2px; }
+
+        .mini-badge {
+            border: 1px solid var(--border-light);
+            color: var(--muted);
+            border-radius: 5px;
+            padding: 4px 7px;
+            font-family: var(--mono);
+            font-size: 9px;
+        }
+
+        .chart-area {
+            height: 250px;
+            padding: 20px 18px 12px;
+            display: flex;
+            align-items: end;
+            gap: 9px;
+            background:
+                repeating-linear-gradient(
+                    to top,
+                    transparent 0,
+                    transparent 48px,
+                    rgba(44,61,88,.35) 49px
+                );
+        }
+
+        .bar-group {
+            height: 100%;
+            flex: 1;
+            min-width: 18px;
+            display: flex;
+            flex-direction: column;
+            justify-content: end;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .bar {
+            width: min(30px, 75%);
+            min-height: 3px;
+            background: linear-gradient(to top, var(--blue-strong), var(--blue));
+            border-radius: 5px 5px 2px 2px;
+            opacity: .9;
+            transition: .2s;
+        }
+
+        .bar:hover { opacity: 1; filter: brightness(1.2); transform: translateY(-2px); }
+        .bar.danger { background: linear-gradient(to top, #be123c, var(--red)); }
+
+        .bar-label {
+            width: 100%;
+            color: var(--muted);
+            font-family: var(--mono);
+            font-size: 8px;
+            text-align: center;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .orbit {
+            height: 250px;
+            position: relative;
+            display: grid;
+            place-items: center;
+            overflow: hidden;
+            background:
+                radial-gradient(circle, rgba(56,189,248,.08) 0 2px, transparent 3px),
+                radial-gradient(circle, transparent 0 49px, rgba(56,189,248,.12) 50px 51px, transparent 52px),
+                radial-gradient(circle, transparent 0 86px, rgba(56,189,248,.08) 87px 88px, transparent 89px);
+        }
+
+        .earth {
+            width: 78px;
+            height: 78px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            background:
+                radial-gradient(circle at 35% 30%, #60a5fa, #1d4ed8 48%, #0b255c 75%);
+            box-shadow: 0 0 35px rgba(37,99,235,.35);
+            font-size: 28px;
+            z-index: 2;
+        }
+
+        .orbit-line {
+            position: absolute;
+            width: 188px;
+            height: 82px;
+            border: 1px dashed rgba(56,189,248,.28);
+            border-radius: 50%;
+            transform: rotate(-18deg);
+        }
+
+        .asteroid-dot {
+            position: absolute;
+            width: 11px;
+            height: 11px;
+            border-radius: 50%;
+            background: var(--yellow);
+            box-shadow: 0 0 13px rgba(245,158,11,.55);
+            top: 69px;
+            right: 31%;
+        }
+
+        .orbit-label {
+            position: absolute;
+            bottom: 13px;
+            left: 16px;
+            right: 16px;
+            display: flex;
+            justify-content: space-between;
+            color: var(--muted);
+            font-size: 10px;
+        }
+
+        .table-panel { margin-bottom: 18px; }
+
+        .table-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--muted);
+            font-size: 10px;
+        }
+
+        .count-badge {
+            color: var(--text);
+            background: var(--surface-3);
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            padding: 4px 7px;
+            font-family: var(--mono);
+        }
+
+        .table-container { overflow-x: auto; }
+
+        table { width: 100%; border-collapse: collapse; min-width: 980px; }
+
+        th {
+            background: rgba(0,0,0,.16);
+            color: var(--muted);
+            padding: 10px 14px;
+            text-align: left;
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: .65px;
+            white-space: nowrap;
+        }
+
+        td {
+            padding: 12px 14px;
+            border-top: 1px solid var(--border);
+            color: #cbd5e1;
+            font-size: 11px;
+            white-space: nowrap;
+        }
+
+        tbody tr { cursor: pointer; transition: background .15s; }
+        tbody tr:hover td { background: rgba(56,189,248,.035); }
+
+        .mono { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+        .name { color: var(--text); font-weight: 600; }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 4px 8px;
+            border-radius: 999px;
+            font-size: 9px;
+            font-weight: 700;
+        }
+
+        .status-pill::before {
+            content: "";
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+
+        .danger {
+            color: #fda4af;
+            background: rgba(244,63,94,.10);
+            border: 1px solid rgba(244,63,94,.23);
+        }
+
+        .safe {
+            color: #86efac;
+            background: rgba(34,197,94,.09);
+            border: 1px solid rgba(34,197,94,.2);
+        }
+
+        .empty {
+            padding: 45px !important;
+            text-align: center;
+            color: var(--muted);
+        }
+
+        .footer {
+            display: flex;
+            justify-content: space-between;
+            color: var(--muted);
+            font-size: 10px;
+            padding: 4px 2px 18px;
+        }
+
+        .modal {
+            position: fixed;
+            inset: 0;
+            background: rgba(2,6,23,.72);
+            backdrop-filter: blur(7px);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 50;
+            padding: 18px;
+        }
+
+        .modal.open { display: flex; }
+
+        .modal-card {
+            width: min(500px, 100%);
+            background: #0d141f;
+            border: 1px solid var(--border-light);
+            border-radius: 12px;
+            box-shadow: 0 25px 80px rgba(0,0,0,.5);
+            overflow: hidden;
+        }
+
+        .modal-head {
+            padding: 17px 18px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+        }
+
+        .modal-head h2 { font-size: 17px; }
+        .modal-head small { color: var(--muted); font-family: var(--mono); }
+
+        .close {
+            border: 0;
+            background: transparent;
+            color: var(--muted);
+            cursor: pointer;
+            font-size: 22px;
+        }
+
+        .details {
+            padding: 16px 18px 20px;
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 9px;
+        }
+
+        .detail {
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: 7px;
+            padding: 11px;
+        }
+
+        .detail span {
+            display: block;
+            color: var(--muted);
+            font-size: 9px;
+            text-transform: uppercase;
+            letter-spacing: .6px;
+            margin-bottom: 3px;
+        }
+
+        .detail strong { font-family: var(--mono); font-size: 12px; }
+
+        @media (max-width: 1050px) {
+            .layout { grid-template-columns: 210px minmax(0,1fr); }
+            .main { padding: 20px; }
+            .metrics { grid-template-columns: repeat(2, 1fr); }
+            .dashboard-grid { grid-template-columns: 1fr; }
+        }
+
+        @media (max-width: 720px) {
+            .topbar { padding: 0 14px; }
+            .brand-text span, .system-status span:last-child { display: none; }
+            .layout { display: block; }
+            .sidebar {
+                border-right: 0;
+                border-bottom: 1px solid var(--border);
+                padding: 15px;
+            }
+            .sidebar-title { margin-bottom: 10px; }
+            .filter-group { margin-bottom: 10px; }
+            .sidebar-info { display: none; }
+            .main { padding: 16px 12px; }
+            .page-heading { align-items: start; flex-direction: column; }
+            h1 { font-size: 20px; }
+            .metrics { grid-template-columns: 1fr 1fr; gap: 8px; }
+            .metric { padding: 12px; }
+            .metric-value { font-size: 17px; }
+            .metric-help { display: none; }
+            .footer { flex-direction: column; gap: 5px; }
+        }
+
+        @media (max-width: 430px) {
+            .metrics { grid-template-columns: 1fr; }
+            .date-badge { width: 100%; }
+            .details { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+
+<body>
+<header class="topbar">
+    <div class="brand">
+        <div class="brand-icon">☄</div>
+        <div class="brand-text">
+            <strong>Asteroid Tracker</strong>
+            <span>NASA Near-Earth Object Monitoring</span>
+        </div>
+    </div>
+
+    <div class="system-status">
+        <span class="status-dot"></span>
+        <span>Banco sincronizado</span>
+        <span>•</span>
+        <span>{{ ultima_atualizacao }}</span>
+    </div>
+</header>
+
+<div class="layout">
+
+    <aside class="sidebar">
+        <div class="sidebar-title">Filtros</div>
+
+        <div class="filter-group">
+            <label class="filter-label">Pesquisar</label>
+            <div class="input-wrap">
+                <span>⌕</span>
+                <input
+                    type="text"
+                    id="searchInput"
+                    onkeyup="filtrarTabela()"
+                    class="input-control"
+                    placeholder="Nome, ID ou Ano..."
+                    autocomplete="off"
+                >
+            </div>
+        </div>
+
+        <div class="filter-group">
+            <label class="filter-label">Classificação de risco</label>
+            <select id="statusFilter" onchange="filtrarTabela()" class="select-control">
+                <option value="TODOS">Todos os objetos</option>
+                <option value="PERIGOSO">Potencialmente perigosos</option>
+                <option value="SEGURO">Não perigosos</option>
+            </select>
+        </div>
+
+        <div class="sidebar-info">
+            <div><span>Fonte</span><b>NASA NeoWs</b></div>
+            <div><span>Banco</span><b>MySQL</b></div>
+            <div><span>Registros</span><b>{{ total_ast }}</b></div>
+            <div><span>Atualização</span><b>Diária</b></div>
+        </div>
+    </aside>
+
+    <main class="main">
+
+        <div class="page-heading">
+            <div>
+                <div class="eyebrow">Near-Earth Object / Telemetry</div>
+                <h1>Monitoramento de asteroides</h1>
+                <div class="subtitle">Aproximações registradas para o período sincronizado com a NASA.</div>
+            </div>
+            <div class="date-badge">● SESSÃO ATIVA: {{ ultima_atualizacao }}</div>
+        </div>
+
+        <section class="metrics">
+            <div class="metric">
+                <div class="metric-label">Asteroides detectados</div>
+                <div class="metric-value">{{ total_ast }}</div>
+                <div class="metric-help">Registros disponíveis no banco</div>
+            </div>
+
+            <div class="metric">
+                <div class="metric-label">Potencialmente perigosos</div>
+                <div class="metric-value" style="color: var(--red);">{{ total_perigosos }}</div>
+                <div class="metric-help">Classificação fornecida pela NASA</div>
+            </div>
+
+            <div class="metric">
+                <div class="metric-label">Maior diâmetro</div>
+                <div class="metric-value">{{ maior_diametro or 0 }} <small style="font-size:11px;color:var(--muted)">km</small></div>
+                <div class="metric-help">Diâmetro máximo estimado</div>
+            </div>
+
+            <div class="metric">
+                <div class="metric-label">Média de velocidade</div>
+                <div class="metric-value">{{ "{:,.0f}".format(media_vel or 0) }} <small style="font-size:11px;color:var(--muted)">km/h</small></div>
+                <div class="metric-help">Velocidade relativa média</div>
+            </div>
+        </section>
+
+        <section class="dashboard-grid">
+
+            <div class="panel">
+                <div class="panel-header">
+                    <div>
+                        <div class="panel-title">Velocidade relativa</div>
+                        <div class="panel-subtitle">Comparação entre os primeiros registros disponíveis</div>
+                    </div>
+                    <span class="mini-badge">km/h</span>
+                </div>
+
+                <div class="chart-area">
+                    {% set max_vel = asteroides[:10]|map(attribute='velocidade_km_h')|list|max if asteroides else 1 %}
+                    {% for ast in asteroides[:10] %}
+                        <div class="bar-group">
+                            <div
+                                class="bar {% if ast.perigoso == 1 %}danger{% endif %}"
+                                style="height: {{ (((ast.velocidade_km_h or 0) / (max_vel or 1)) * 100)|round(1) }}%;"
+                                title="{{ ast.nome }} — {{ '{:,.0f}'.format(ast.velocidade_km_h or 0) }} km/h"
+                            ></div>
+                            <div class="bar-label">{{ ast.nome }}</div>
+                        </div>
+                    {% else %}
+                        <div style="width:100%;text-align:center;color:var(--muted);align-self:center;">
+                            Nenhum dado disponível para o gráfico.
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="panel-header">
+                    <div>
+                        <div class="panel-title">Proximidade da Terra</div>
+                        <div class="panel-subtitle">Representação conceitual</div>
+                    </div>
+                    <span class="mini-badge">LD</span>
+                </div>
+
+                <div class="orbit">
+                    <div class="orbit-line"></div>
+                    <div class="earth">🌍</div>
+                    <div class="asteroid-dot"></div>
+                    <div class="orbit-label">
+                        <span>Terra</span>
+                        <span>1 LD = distância média Terra–Lua</span>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <section class="panel table-panel">
+            <div class="panel-header">
+                <div>
+                    <div class="panel-title">Catálogo de Asteroides</div>
+                    <div class="panel-subtitle">Registros armazenados no banco de dados</div>
+                </div>
+                <div class="table-toolbar">
+                    <span>Exibindo</span>
+                    <span class="count-badge" id="visibleCount">{{ total_ast }}</span>
+                </div>
+            </div>
+
+            <div class="table-container">
+                <table id="asteroidesTable">
+                    <thead>
+                        <tr>
+                            <th>SPK-ID</th>
+                            <th>Designação</th>
+                            <th>Ano Descoberta</th>
+                            <th>Data Aproximação</th>
+                            <th>Data Coleta (BD)</th>
+                            <th>Diâmetro Máx</th>
+                            <th>Velocidade</th>
+                            <th>Distância Lunar</th>
+                            <th>Risco</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                    {% for ast in asteroides %}
+                        <tr
+                            onclick="abrirDetalhes(this)"
+                            data-id="{{ ast.id }}"
+                            data-nome="{{ ast.nome }}"
+                            data-ano="{{ ast.ano_descoberta if ast.ano_descoberta else '-' }}"
+                            data-data="{{ ast.data_aproximacao.strftime('%d/%m/%Y') if ast.data_aproximacao else '-' }}"
+                            data-coleta="{{ ast.data_coleta.strftime('%d/%m/%Y %H:%M') if ast.data_coleta else '-' }}"
+                            data-diametro="{{ '%.2f'|format(ast.diametro_max_km or 0) }} km"
+                            data-velocidade="{{ '{:,.0f}'.format(ast.velocidade_km_h or 0) }} km/h"
+                            data-distancia="{{ '%.1f'|format(ast.distancia_lunar or 0) }} LD"
+                            data-perigoso="{{ 'Potencialmente Perigoso' if ast.perigoso == 1 else 'Não perigoso' }}"
+                        >
+                            <td class="mono">{{ ast.id }}</td>
+                            <td class="name">{{ ast.nome }}</td>
+                            <td class="mono">{{ ast.ano_descoberta if ast.ano_descoberta else '-' }}</td>
+                            <td class="mono" style="color:var(--blue);">
+                                {{ ast.data_aproximacao.strftime('%d/%m/%Y') if ast.data_aproximacao else '-' }}
+                            </td>
+                            <td class="mono" style="color:var(--muted);">
+                                {{ ast.data_coleta.strftime('%d/%m/%Y %H:%M') if ast.data_coleta else '-' }}
+                            </td>
+                            <td class="mono">{{ "%.2f"|format(ast.diametro_max_km or 0) }} km</td>
+                            <td class="mono">{{ "{:,.0f}".format(ast.velocidade_km_h or 0) }} km/h</td>
+                            <td class="mono">{{ "%.1f"|format(ast.distancia_lunar or 0) }} LD</td>
+                            <td>
+                                {% if ast.perigoso == 1 %}
+                                    <span class="status-pill danger">Potencialmente Perigoso</span>
+                                {% else %}
+                                    <span class="status-pill safe">Não perigoso</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="9" class="empty">
+                                Nenhum registro encontrado no banco de dados.
+                            </td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <div class="footer">
+            <span>NASA Near Earth Object Web Service • Dados sincronizados pelo sistema Python</span>
+            <span>☄ Asteroid Tracker v1.0</span>
+        </div>
+
+    </main>
+</div>
+
+<!-- Modal de detalhes -->
+<div class="modal" id="detailsModal" onclick="fecharModal(event)">
+    <div class="modal-card" onclick="event.stopPropagation()">
+        <div class="modal-head">
+            <div>
+                <small id="modalId">SPK-ID</small>
+                <h2 id="modalNome">Asteroide</h2>
+            </div>
+            <button class="close" onclick="fecharModal()">×</button>
+        </div>
+
+        <div class="details">
+            <div class="detail">
+                <span>Ano de descoberta</span>
+                <strong id="modalAno">-</strong>
+            </div>
+            <div class="detail">
+                <span>Data de aproximação</span>
+                <strong id="modalData">-</strong>
+            </div>
+            <div class="detail">
+                <span>Data da coleta (BD)</span>
+                <strong id="modalColeta">-</strong>
+            </div>
+            <div class="detail">
+                <span>Diâmetro máximo</span>
+                <strong id="modalDiametro">-</strong>
+            </div>
+            <div class="detail">
+                <span>Velocidade relativa</span>
+                <strong id="modalVelocidade">-</strong>
+            </div>
+            <div class="detail">
+                <span>Distância lunar</span>
+                <strong id="modalDistancia">-</strong>
+            </div>
+            <div class="detail" style="grid-column:1/-1">
+                <span>Classificação</span>
+                <strong id="modalRisco">-</strong>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function filtrarTabela() {
+        const input = document.getElementById("searchInput").value.toUpperCase().trim();
+        const select = document.getElementById("statusFilter").value;
+        const rows = document.querySelectorAll("#asteroidesTable tbody tr");
+        let visible = 0;
+
+        rows.forEach(row => {
+            const cells = row.getElementsByTagName("td");
+            if (cells.length < 9) return;
+
+            const id = cells[0].textContent.toUpperCase();
+            const nome = cells[1].textContent.toUpperCase();
+            const ano = cells[2].textContent.toUpperCase();
+            const status = cells[8].textContent.trim();
+
+            const matchesSearch = !input || id.includes(input) || nome.includes(input) || ano.includes(input);
+            let matchesStatus = true;
+
+            if (select === "PERIGOSO") {
+                matchesStatus = status.includes("Potencialmente Perigoso");
+            } else if (select === "SEGURO") {
+                matchesStatus = status.includes("Não perigoso");
+            }
+
+            const show = matchesSearch && matchesStatus;
+            row.style.display = show ? "" : "none";
+            if (show) visible++;
+        });
+
+        document.getElementById("visibleCount").textContent = visible;
+    }
+
+    function abrirDetalhes(row) {
+        document.getElementById("modalId").textContent = "SPK-ID " + row.dataset.id;
+        document.getElementById("modalNome").textContent = row.dataset.nome;
+        document.getElementById("modalAno").textContent = row.dataset.ano;
+        document.getElementById("modalData").textContent = row.dataset.data;
+        document.getElementById("modalColeta").textContent = row.dataset.coleta;
+        document.getElementById("modalDiametro").textContent = row.dataset.diametro;
+        document.getElementById("modalVelocidade").textContent = row.dataset.velocidade;
+        document.getElementById("modalDistancia").textContent = row.dataset.distancia;
+        document.getElementById("modalRisco").textContent = row.dataset.perigoso;
+
+        const risco = document.getElementById("modalRisco");
+        risco.style.color = row.dataset.perigoso === "Potencialmente Perigoso"
+            ? "var(--red)"
+            : "var(--green)";
+
+        document.getElementById("detailsModal").classList.add("open");
+    }
+
+    function fecharModal(event) {
+        if (!event || event.target === document.getElementById("detailsModal")) {
+            document.getElementById("detailsModal").classList.remove("open");
+        }
+    }
+
+    document.addEventListener("keydown", function(event) {
+        if (event.key === "Escape") fecharModal();
+    });
+</script>
+
+</body>
+</html>
